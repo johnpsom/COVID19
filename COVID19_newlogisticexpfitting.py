@@ -2,7 +2,7 @@
 """
 Created on Tue Mar 31 12:38:19 2020
 
-@author: ioannis.psomiadis@gmail.com
+@author: ioann
 """
 import dash
 from dash.dependencies import Input, Output
@@ -47,7 +47,8 @@ def plotCases(dataframe, column, country):
     
     print('** ',country,' **')    
     recentdbltime = float('NaN')
-    
+    ed='NaN'
+    casesoned=0
     if len(y) >= 10: #we have at least 10 days of cases reported
         
         current = y[-1]
@@ -70,93 +71,85 @@ def plotCases(dataframe, column, country):
             
             logisticworked = False
             exponentialworked = False
-            
-            try:
-                lpopt, lpcov = curve_fit(logistic, x, y, maxfev=10000)
-                lerror = np.sqrt(np.diag(lpcov))
-                a=lpopt[0]
-                b=lpopt[1]
-                c=lpopt[2]
-                d=lpopt[3]
-                # for logistic curve at half maximum, slope = growth rate/2. so doubling time = ln(2) / (growth rate/2)
-                ldoubletime = np.log(2)/(lpopt[1]/2)
-                # standard error
-                ldoubletimeerror = 1.96 * ldoubletime * np.abs(lerror[1]/lpopt[1])
-                # calculate R^2
-                residuals = y - logistic(x, *lpopt)
-                ss_res = np.sum(residuals**2)
-                ss_tot = np.sum((y - np.mean(y))**2)
-                
-                logisticr2 = 1 - (ss_res / ss_tot)  
-                pred_x15= list(range(max(x)+1, max(x)+15))
-                pred_y_log=[round(logistic(i,a,b,c,d),0) for i in pred_x15]
-                
-                if logisticr2 > 0.95:
-                    plt.plot(x, logistic(x, *lpopt), 'b--', label="Logistic Curve Fit")
-                    plt.scatter(pred_x15,pred_y_log,label="Extrapolated data",color="green")
-                    print('\n** Based on Logistic Fit**\n')
-                    print('\tR^2:', logisticr2)
-                    print('\tDoubling Time (during middle of growth): ', round(ldoubletime,2), '(±', round(ldoubletimeerror,2),') days')
-                    sol = int(fsolve(lambda x : logistic(x, a, b, c, d) - int(d), 1))
-                    print('\tEnd Date on day No:',sol,'meaning in another',sol-y.size,'days and inflection point at day No ',int(np.log(a)/b))
-                    ed=datetime.strptime(mostrecentdate,'%m/%d/%y')+timedelta(days=sol-y.size)
-                    ed=ed.strftime('%d/%m/%Y')
-                    print('\tEnd Date is estimated on',ed)
-                    print('\tEstimated Total number of cases between [',int(logistic(sol, a, b, c, d)),',',int(logistic(sol, a, b, c, d)+lerror[3]),']')
-                    casesoned=int(logistic(sol, a, b, c, d)+lerror[3])
-                    logisticworked = True
+            if y[-1]>1000:
+                try:
+                    lpopt, lpcov = curve_fit(logistic, x, y, maxfev=10000)
+                    lerror = np.sqrt(np.diag(lpcov))
+                    a=lpopt[0]
+                    b=lpopt[1]
+                    c=lpopt[2]
+                    d=lpopt[3]
+                    # for logistic curve at half maximum, slope = growth rate/2. so doubling time = ln(2) / (growth rate/2)
+                    ldoubletime = np.log(2)/(lpopt[1]/2)
+                    # standard error
+                    ldoubletimeerror = 1.96 * ldoubletime * np.abs(lerror[1]/lpopt[1])
+                    # calculate R^2
+                    residuals = y - logistic(x, *lpopt)
+                    ss_res = np.sum(residuals**2)
+                    ss_tot = np.sum((y - np.mean(y))**2)
+                    logisticr2 = 1 - (ss_res / ss_tot)  
+                    pred_x15= list(range(max(x)+1, max(x)+15))
+                    pred_y_log=[round(logistic(i,a,b,c,d),0) for i in pred_x15]
+                    logisticworked = True 
                    
-            except:
-                pass
-            
-            try:
-                epopt, epcov = curve_fit(exponential, x, y, bounds=([0,0,-100],[100,0.9,100]), maxfev=10000)
-                eerror = np.sqrt(np.diag(epcov))
-                a=epopt[0]
-                b=epopt[1]
-                c=epopt[2]
-                # for exponential curve, slope = growth rate. so doubling time = ln(2) / growth rate
-                edoubletime = np.log(2)/epopt[1]
-                # standard error
-                edoubletimeerror = 1.96 * edoubletime * np.abs(eerror[1]/epopt[1])
-                
-                # calculate R^2
-                residuals = y - exponential(x, *epopt)
-                ss_res = np.sum(residuals**2)
-                ss_tot = np.sum((y - np.mean(y))**2)
-                expr2 = 1 - (ss_res / ss_tot)
-                pred_x15= list(range(max(x)+1, max(x)+15))
-                pred_y_exp=[round(exponential(i,a,b,c),0) for i in pred_x15]
-               
-                if  logisticworked==False: #0.95 expr2 > logisticr2
-                    plt.plot(x, exponential(x, *epopt), 'r--', label="Exponential Curve Fit")
-                    plt.scatter(pred_x15,pred_y_exp,label="Extrapolated data",color="green")
-                    print('\n** Based on Exponential Fit **\n')
-                    print('\tR^2:', expr2)
-                    print('\tDoubling Time (represents overall growth): ', round(edoubletime,2), '(±', round(edoubletimeerror,2),') days')
-                    print('\tSince the data best fit on the exponential model End Date cannot be found')
-                    print('\tBut can extrapolate and predict the number of cases for the next 14 days, which are:')
-                    print('\t',pred_y_exp[:7])
-                    print('\t',pred_y_exp[7:])
-                    print('\tEvolution of the Ratios for next week based on estimated cases')
-                    print('\t',round(pred_y_exp[0]/y[-7],2), round(pred_y_exp[1]/y[-6],2),round(pred_y_exp[2]/y[-5],2), round(pred_y_exp[3]/y[-4],2))
-                    print('\t',round(pred_y_exp[4]/y[-3],2), round(pred_y_exp[5]/y[-2],2),round(pred_y_exp[6]/y[-1],2), round(pred_y_exp[7]/pred_y_exp[0],2))
+                except:
+                    logisticworked = False
+                    pass
+            else:
+                try:
+                    epopt, epcov = curve_fit(exponential, x, y, bounds=([0,0,-100],[100,0.9,100]), maxfev=10000)
+                    eerror = np.sqrt(np.diag(epcov))
+                    a=epopt[0]
+                    b=epopt[1]
+                    c=epopt[2]
+                    # for exponential curve, slope = growth rate. so doubling time = ln(2) / growth rate
+                    edoubletime = np.log(2)/epopt[1]
+                    # standard error
+                    edoubletimeerror = 1.96 * edoubletime * np.abs(eerror[1]/epopt[1])
+                    
+                    # calculate R^2
+                    residuals = y - exponential(x, *epopt)
+                    ss_res = np.sum(residuals**2)
+                    ss_tot = np.sum((y - np.mean(y))**2)
+                    expr2 = 1 - (ss_res / ss_tot)
+                    pred_x15= list(range(max(x)+1, max(x)+15))
+                    pred_y_exp=[round(exponential(i,a,b,c),0) for i in pred_x15]
                     exponentialworked = True
-                    ed='NaN'
-                    casesoned=float('NaN')
-            except:
-                pass
+                    
+                except:
+                    exponentialworked = False
+                    pass
             
-            try:
-                quaopt,quacov=curve_fit(quadratic,x,y,maxfev=10000)
-                print('Quadratic polynomial fit')
-                print(quaopt,quacov)
+            if logisticworked and logisticr2 > 0.95:
+                plt.plot(x, logistic(x, *lpopt), 'b--', label="Logistic Curve Fit")
+                plt.scatter(pred_x15,pred_y_log,label="Extrapolated data",color="green")
+                print('\n** Based on Logistic Fit**\n')
+                print('\tR^2:', logisticr2)
+                print('\tDoubling Time (during middle of growth): ', round(ldoubletime,2), '(±', round(ldoubletimeerror,2),') days')
+                sol = int(fsolve(lambda x : logistic(x, a, b, c, d) - int(d), 1))
+                print('\tEnd Date on day No:',sol,'meaning in another',sol-y.size,'days and inflection point at day No ',int(np.log(a)/b))
+                ed=datetime.strptime(mostrecentdate,'%m/%d/%y')+timedelta(days=sol-y.size)
+                ed=ed.strftime('%d/%m/%Y')
+                print('\tEnd Date is estimated on',ed)
+                print('\tEstimated Total number of cases between [',int(logistic(sol, a, b, c, d)),',',int(logistic(sol, a, b, c, d)+lerror[3]),']')
+                casesoned=int(logistic(sol, a, b, c, d)+lerror[3])
                 
-                
-            except:
-                pass
-    
-    
+            if  exponentialworked and (logisticworked==False or expr2 > logisticr2): #0.95 logisticworked==False
+                plt.plot(x, exponential(x, *epopt), 'r--', label="Exponential Curve Fit")
+                plt.scatter(pred_x15,pred_y_exp,label="Extrapolated data",color="green")
+                print('\n** Based on Exponential Fit **\n')
+                print('\tR^2:', expr2)
+                print('\tDoubling Time (represents overall growth): ', round(edoubletime,2), '(±', round(edoubletimeerror,2),') days')
+                print('\tSince the data best fit on the exponential model End Date cannot be found')
+                print('\tBut can extrapolate and predict the number of cases for the next 14 days, which are:')
+                print('\t',pred_y_exp[:7])
+                print('\t',pred_y_exp[7:])
+                print('\tEvolution of the Ratios for next week based on estimated cases')
+                print('\t',round(pred_y_exp[0]/y[-7],2), round(pred_y_exp[1]/y[-6],2),round(pred_y_exp[2]/y[-5],2), round(pred_y_exp[3]/y[-4],2))
+                print('\t',round(pred_y_exp[4]/y[-3],2), round(pred_y_exp[5]/y[-2],2),round(pred_y_exp[6]/y[-1],2), round(pred_y_exp[7]/pred_y_exp[0],2))
+                ed='NaN'
+                casesoned=0 
+                    
             plt.title(country + ' Cumulative COVID-19 Cases. (Updated on '+mostrecentdate+')', fontsize="x-large")
             plt.xlabel('Days', fontsize="x-large")
             plt.ylabel('Total Cases', fontsize="x-large")
@@ -164,19 +157,19 @@ def plotCases(dataframe, column, country):
             plt.show()
     
             if logisticworked and exponentialworked:
-                if round(logisticr2,2) > round(expr2,2):
+                if logisticr2 > expr2:
                     return [ldoubletime, ldoubletimeerror, recentdbltime, ed, casesoned, round(y[-1]/y[-8],2)]
                 else:
                     return [edoubletime, edoubletimeerror, recentdbltime, ed, casesoned, round(y[-1]/y[-8],2)]
                     
-            if logisticworked:
+            if logisticworked and exponentialworked==False:
                 return [ldoubletime, ldoubletimeerror, recentdbltime, ed,  casesoned, round(y[-1]/y[-8],2)]
             
-            if exponentialworked:
+            if exponentialworked and logisticworked==False:
                 return [edoubletime, edoubletimeerror, recentdbltime, ed, casesoned, round(y[-1]/y[-8],2)]
             
-            else:
-                return [float('NaN'), float('NaN'), recentdbltime,'NaN',float('NaN'), round(y[-1]/y[-8],2)]
+            if exponentialworked==False and logisticworked==False:
+                return [float('NaN'), float('NaN'), recentdbltime,'NaN',0, round(y[-1]/y[-8],2)]
 
 
 url='https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv'
