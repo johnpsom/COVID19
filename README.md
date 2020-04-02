@@ -12,3 +12,6 @@ realistic aproximation of the End Date and Total Cases.
 While rates above 2 and doubling Speed below 6 , mean that 
 the country is on an exponetial growth trajectory and not
 yet arrived to an inflection point.
+
+The above are presented in two plotly choropleth maps.
+Hover above each country to see the coresponding metrics values.
