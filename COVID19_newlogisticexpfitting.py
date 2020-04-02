@@ -2,7 +2,7 @@
 """
 Created on Tue Mar 31 12:38:19 2020
 
-@author: ioann
+@author: ioannis.psomiadis@gmail.com
 """
 import dash
 from dash.dependencies import Input, Output
